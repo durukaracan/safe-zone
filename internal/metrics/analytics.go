@@ -107,3 +107,19 @@ func clipName(name string) string {
 	}
 	return name[:cut]
 }
+
+// RestoreAnalytics adds counters back into the buffer. It is used when
+// writing them to the database failed, so the counts are tried again at the
+// next flush instead of being lost. Counts recorded in the meantime are
+// kept: the two are added together.
+func RestoreAnalytics(counts map[AnalyticsKey]AnalyticsCount) {
+	analyticsBuffer.Lock()
+	defer analyticsBuffer.Unlock()
+
+	for key, c := range counts {
+		existing := analyticsBuffer.counts[key]
+		existing.Total += c.Total
+		existing.Blocked += c.Blocked
+		analyticsBuffer.counts[key] = existing
+	}
+}
