@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"thyris-sz/internal/database"
 	"thyris-sz/internal/models"
 
@@ -34,4 +36,12 @@ func UpsertAnalyticsHourly(rows []models.AnalyticsHourly) error {
 			"blocked": gorm.Expr("analytics_hourly.blocked + EXCLUDED.blocked"),
 		}),
 	}).Create(&rows).Error
+}
+
+// DeleteAnalyticsHourlyBefore permanently removes every counter whose hour
+// started before cutoff, and returns how many rows were removed. The table
+// has no soft-delete column, so the rows are really gone.
+func DeleteAnalyticsHourlyBefore(cutoff time.Time) (int64, error) {
+	result := database.DB.Where("bucket_hour < ?", cutoff).Delete(&models.AnalyticsHourly{})
+	return result.RowsAffected, result.Error
 }

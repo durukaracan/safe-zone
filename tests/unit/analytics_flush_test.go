@@ -3,6 +3,7 @@ package unit
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -128,5 +129,72 @@ func TestRun_FlushesOneLastTimeWhenStopped(t *testing.T) {
 
 	if len(w.calls) != 1 {
 		t.Fatalf("expected exactly one write on shutdown, got %d", len(w.calls))
+	}
+}
+
+func TestCleanupOnce_KeepsExactly90Days(t *testing.T) {
+	var gotCutoff time.Time
+	del := func(cutoff time.Time) (int64, error) {
+		gotCutoff = cutoff
+		return 7, nil
+	}
+
+	// 17:37 in UTC+3 is 14:37 UTC. 90 days earlier is 2026-07-11, and the
+	// cut-off is rounded down to the start of that hour.
+	istanbul := time.FixedZone("UTC+3", 3*60*60)
+	now := time.Date(2026, 10, 9, 17, 37, 0, 0, istanbul)
+
+	removed, err := analytics.CleanupOnce(now, del)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if removed != 7 {
+		t.Fatalf("expected the removed count to be passed on, got %d", removed)
+	}
+
+	want := time.Date(2026, 7, 11, 14, 0, 0, 0, time.UTC)
+	if !gotCutoff.Equal(want) {
+		t.Fatalf("expected cut-off %v, got %v", want, gotCutoff)
+	}
+}
+
+func TestCleanupOnce_ReturnsTheDeleteError(t *testing.T) {
+	del := func(time.Time) (int64, error) { return 0, errors.New("database is down") }
+
+	if _, err := analytics.CleanupOnce(time.Now(), del); err == nil {
+		t.Fatal("expected the delete error to be returned")
+	}
+}
+
+func TestRunCleanup_RunsAtStartAndKeepsGoingAfterAnError(t *testing.T) {
+	var calls atomic.Int32
+	del := func(time.Time) (int64, error) {
+		calls.Add(1)
+		return 0, errors.New("database is down")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		analytics.RunCleanup(ctx, 10*time.Millisecond, del)
+	}()
+
+	// The first run happens immediately; later runs follow the ticker even
+	// though every run fails.
+	deadline := time.After(2 * time.Second)
+	for calls.Load() < 3 {
+		select {
+		case <-deadline:
+			t.Fatalf("expected at least 3 cleanup runs, got %d", calls.Load())
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("RunCleanup did not stop after the context was cancelled")
 	}
 }

@@ -283,9 +283,16 @@ func main() {
 		defer close(analyticsDone)
 		analytics.Run(analyticsCtx, analytics.FlushInterval, repository.UpsertAnalyticsHourly)
 	}()
+	// Counters older than analytics.RetentionDays are deleted once a day.
+	cleanupDone := make(chan struct{})
+	go func() {
+		defer close(cleanupDone)
+		analytics.RunCleanup(analyticsCtx, analytics.CleanupInterval, repository.DeleteAnalyticsHourlyBefore)
+	}()
 	stopAnalytics := func() {
 		cancelAnalytics()
 		<-analyticsDone
+		<-cleanupDone
 	}
 
 	// Graceful Shutdown

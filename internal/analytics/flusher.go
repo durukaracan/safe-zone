@@ -16,6 +16,14 @@ import (
 // because Run flushes one last time.
 const FlushInterval = 30 * time.Second
 
+// RetentionDays is how long hourly counters are kept. Older rows are
+// deleted for good by RunCleanup.
+const RetentionDays = 90
+
+// CleanupInterval is how often old rows are looked for. The job also runs
+// once when the application starts.
+const CleanupInterval = 24 * time.Hour
+
 // WriteFunc writes counter rows to the database. It must be all-or-nothing:
 // when it returns an error, none of the rows may have been stored.
 type WriteFunc func(rows []models.AnalyticsHourly) error
@@ -64,6 +72,48 @@ func Run(ctx context.Context, interval time.Duration, write WriteFunc) {
 			if err := FlushOnce(write); err != nil {
 				log.Printf("[Analytics] could not write hourly counters on shutdown: %v", err)
 			}
+			return
+		}
+	}
+}
+
+// DeleteFunc permanently removes counters whose hour started before cutoff
+// and returns how many rows it removed.
+type DeleteFunc func(cutoff time.Time) (int64, error)
+
+// CleanupOnce deletes counters older than RetentionDays. The cut-off is
+// "now minus RetentionDays", rounded down to the start of an hour, so whole
+// hourly rows are kept or removed, never half of one.
+func CleanupOnce(now time.Time, del DeleteFunc) (int64, error) {
+	cutoff := now.UTC().AddDate(0, 0, -RetentionDays).Truncate(time.Hour)
+	return del(cutoff)
+}
+
+// RunCleanup runs CleanupOnce right away and then every interval, until ctx
+// is cancelled. A failed run is logged and tried again at the next tick; it
+// never stops the loop.
+func RunCleanup(ctx context.Context, interval time.Duration, del DeleteFunc) {
+	cleanup := func() {
+		removed, err := CleanupOnce(time.Now(), del)
+		if err != nil {
+			log.Printf("[Analytics] could not delete old hourly counters, will retry: %v", err)
+			return
+		}
+		if removed > 0 {
+			log.Printf("[Analytics] deleted %d hourly counter rows older than %d days", removed, RetentionDays)
+		}
+	}
+
+	cleanup()
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			cleanup()
+		case <-ctx.Done():
 			return
 		}
 	}
