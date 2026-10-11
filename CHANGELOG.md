@@ -27,6 +27,17 @@ them, rather than being treated as product releases.
 - `AUTH_PUBLIC_PATHS` now defaults to
   `/healthz,/ready,/auth/login,/auth/logout,/auth/me`.
 
+### Dashboard analytics
+
+- Added an Analytics page and `GET /dashboard/analytics` (any signed-in role):
+  requests over time (allowed and blocked), PII detections by category and
+  the most triggered guardrails for the last 24 hours, 7, 30 or 90 days.
+- Counts are stored as hourly aggregates in the new `analytics_hourly` table
+  (created automatically), flushed every 30 seconds and kept for 90 days.
+  Only counts and category or guardrail names are stored, never request
+  content, request ids or IP addresses.
+- Added `recharts` as an explicit dashboard dependency.
+
 ## 2.1.0 - 2026-09-07
 
 ### Bring Your Gateway

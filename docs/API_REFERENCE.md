@@ -1690,3 +1690,51 @@ Recorded actions:
 What is **never** written to the audit log: passwords, request bodies, tokens, session ids, and allowlist or blocklist values. `details` carries names and ids only. Repeated identical failures are throttled so an attacker cannot flood the table.
 
 Audit records are kept without an expiry in this version. Define a retention period that fits your KVKK / GDPR obligations before running in production.
+
+### 12.5 Dashboard analytics
+
+`GET /dashboard/analytics` returns request volume over time, PII detections by category and the most triggered guardrails. It is read-only and available to any signed-in session (`admin` or `viewer`).
+
+**Query parameter**
+
+- `range`: one of `24h`, `7d` (default), `30d`, `90d`. Any other value returns `400`.
+
+| Range | Grouping | Points |
+|-------|----------|--------|
+| `24h` | per hour | 24 |
+| `7d` | per hour | 168 |
+| `30d` | per day (UTC) | 30 |
+| `90d` | per day (UTC) | 90 |
+
+Hourly points are cut at the start of the UTC hour and daily points at UTC midnight. Hours and days without traffic are returned with zeros, so the series has no gaps. The last point is still in progress.
+
+**Response 200**
+
+```json
+{
+  "range": "7d",
+  "bucket": "hour",
+  "from": "2026-10-04T16:00:00Z",
+  "to": "2026-10-11T16:00:00Z",
+  "totals": { "requests": 7, "blocked": 4, "allowed": 3 },
+  "requests": [
+    { "time": "2026-10-04T16:00:00Z", "total": 0, "blocked": 0 }
+  ],
+  "pii": [ { "name": "EMAIL", "total": 2 } ],
+  "guardrails": [ { "name": "NUMERIC", "total": 2 } ]
+}
+```
+
+- `to` is exclusive. `allowed` is `requests - blocked`.
+- `pii` and `guardrails` list at most 10 names, highest count first (ties by name). They are `[]`, never `null`, when empty.
+- `guardrails` counts how many times a guardrail failed a request.
+
+**Errors:** `400` unknown `range`, `401` not signed in, `405` any method other than `GET`, `500` the counters could not be read (the response never contains the database error).
+
+**How the data is stored**
+
+- Counts are kept in memory and written to the `analytics_hourly` table every 30 seconds and once more on graceful shutdown. A hard crash can lose up to 30 seconds of counts.
+- Rows are aggregated per UTC hour, kind (`REQUEST`, `PII`, `GUARDRAIL`) and name. Names are PII categories and guardrail names, cut to 100 bytes.
+- Rows older than 90 days are deleted once a day.
+- **Never stored:** request or response text, matched values, request ids, IP addresses, user identity, tokens or credentials. Only counts and category or guardrail names exist in this table, so it carries no personal data by itself.
+- Unlike `/dashboard/summary` and `/dashboard/events` (in-memory, reset on restart), analytics survives restarts.
