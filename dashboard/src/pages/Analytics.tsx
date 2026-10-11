@@ -6,9 +6,7 @@ import {
   CardHeader,
   CardTitle,
   ChartContainer,
-  ChartLegendContent,
   ChartTooltip,
-  ChartTooltipContent,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -19,21 +17,25 @@ import {
   TableHeader,
   TableRow,
 } from '@thyris/ui'
-import { Bar, BarChart, CartesianGrid, Legend, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { getAnalytics, DEFAULT_ANALYTICS_RANGE } from '../api/analytics'
 import { ApiError } from '../api/client'
+import ChartTooltipBox from '../components/ChartTooltipBox'
 import type { AnalyticsNamedCount, AnalyticsRange, AnalyticsReport } from '../types/analytics'
 import { ANALYTICS_RANGES, blockRate, toChartRows } from '../utils/analytics'
 
 type LoadState = 'loading' | 'success' | 'empty' | 'error' | 'unauthorized'
 
+const ALLOWED_COLOR = 'hsl(var(--chart-2))'
+const BLOCKED_COLOR = 'hsl(var(--destructive))'
+
 const requestsConfig = {
-  allowed: { label: 'Allowed', color: 'hsl(var(--chart-2))' },
-  blocked: { label: 'Blocked', color: 'hsl(var(--destructive))' },
+  allowed: { label: 'Allowed', color: ALLOWED_COLOR },
+  blocked: { label: 'Blocked', color: BLOCKED_COLOR },
 }
 
 const countConfig = {
-  total: { label: 'Detections', color: 'hsl(var(--chart-2))' },
+  total: { label: 'Count', color: ALLOWED_COLOR },
 }
 
 function TopList({ title, description, items, emptyText }: {
@@ -54,16 +56,18 @@ function TopList({ title, description, items, emptyText }: {
         ) : (
           <ChartContainer
             config={countConfig}
-            className="w-full"
+            className="aspect-auto w-full"
             style={{ height: Math.max(items.length * 36 + 24, 120) }}
           >
-            <BarChart data={items} layout="vertical" margin={{ left: 8, right: 16 }}>
-              <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-              <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
-              <YAxis dataKey="name" type="category" width={110} tickLine={false} axisLine={false} />
-              <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-              <Bar dataKey="total" fill="var(--color-total)" radius={[0, 4, 4, 0]} barSize={16} />
-            </BarChart>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={items} layout="vertical" margin={{ left: 8, right: 16 }}>
+                <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
+                <YAxis dataKey="name" type="category" width={110} tickLine={false} axisLine={false} />
+                <ChartTooltip content={<ChartTooltipBox hideLabel />} />
+                <Bar dataKey="total" name="Count" fill={ALLOWED_COLOR} radius={[0, 4, 4, 0]} barSize={16} />
+              </BarChart>
+            </ResponsiveContainer>
           </ChartContainer>
         )}
       </CardContent>
@@ -192,16 +196,27 @@ export default function Analytics() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ChartContainer config={requestsConfig} className="h-72 w-full">
-                    <BarChart data={rows} margin={{ left: 0, right: 8 }}>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-                      <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={40} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend content={<ChartLegendContent />} />
-                      <Bar dataKey="allowed" stackId="req" fill="var(--color-allowed)" stroke="hsl(var(--card))" strokeWidth={1} />
-                      <Bar dataKey="blocked" stackId="req" fill="var(--color-blocked)" stroke="hsl(var(--card))" strokeWidth={1} radius={[3, 3, 0, 0]} />
-                    </BarChart>
+                  <div className="mb-3 flex items-center gap-4 text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-[2px]" style={{ backgroundColor: ALLOWED_COLOR }} />
+                      Allowed
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-[2px]" style={{ backgroundColor: BLOCKED_COLOR }} />
+                      Blocked
+                    </span>
+                  </div>
+                  <ChartContainer config={requestsConfig} className="aspect-auto h-72 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={rows} margin={{ left: 0, right: 8 }}>
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                        <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
+                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={40} />
+                        <ChartTooltip content={<ChartTooltipBox />} />
+                        <Bar dataKey="allowed" name="Allowed" stackId="req" fill={ALLOWED_COLOR} stroke="hsl(var(--card))" strokeWidth={1} />
+                        <Bar dataKey="blocked" name="Blocked" stackId="req" fill={BLOCKED_COLOR} stroke="hsl(var(--card))" strokeWidth={1} radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>
