@@ -236,6 +236,7 @@ func main() {
 	mux.Handle("GET /dashboard/summary", middleware.RequireSession(http.HandlerFunc(handlers.GetDashboardSummary)))
 	mux.Handle("GET /dashboard/events", middleware.RequireSession(http.HandlerFunc(handlers.GetDashboardEvents)))
 	mux.Handle("GET /dashboard/config", middleware.RequireSession(http.HandlerFunc(handlers.GetDashboardConfig)))
+	mux.Handle("GET /dashboard/analytics", middleware.RequireSession(handlers.NewDashboardAnalyticsHandler(repository.ListAnalyticsHourlyFrom, time.Now)))
 	// Dashboard user auth (V3.0) -- session-based, separate from the
 	// token-based machine auth above.
 	mux.HandleFunc("POST /auth/login", handlers.Login)

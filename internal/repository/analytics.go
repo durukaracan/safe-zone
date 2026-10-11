@@ -45,3 +45,12 @@ func DeleteAnalyticsHourlyBefore(cutoff time.Time) (int64, error) {
 	result := database.DB.Where("bucket_hour < ?", cutoff).Delete(&models.AnalyticsHourly{})
 	return result.RowsAffected, result.Error
 }
+
+// ListAnalyticsHourlyFrom returns every hourly counter whose hour started at
+// or after since, oldest first. The caller groups and fills the rows; the
+// table holds at most RetentionDays of data, so the result stays small.
+func ListAnalyticsHourlyFrom(since time.Time) ([]models.AnalyticsHourly, error) {
+	var rows []models.AnalyticsHourly
+	err := database.DB.Where("bucket_hour >= ?", since).Order("bucket_hour").Find(&rows).Error
+	return rows, err
+}
