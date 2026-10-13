@@ -130,3 +130,53 @@ func generateSessionID() (string, error) {
 	}
 	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
+
+// OtherSessionIDs returns ids without keepID, in the same order. It holds
+// the one rule of "close the other sessions": the session making the request
+// stays, everything else goes. An empty keepID keeps nothing.
+func OtherSessionIDs(ids []string, keepID string) []string {
+	others := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id != keepID {
+			others = append(others, id)
+		}
+	}
+	return others
+}
+
+// RevokeOtherSessions closes every live session of the user except keepID
+// (normally the session that made the request), and returns how many live
+// sessions it closed.
+//
+// It reads the user's register, deletes the matching session records and
+// removes those ids from the register, all in one transaction. Ids in the
+// register whose session already expired are cleaned up too but not counted.
+func RevokeOtherSessions(ctx context.Context, userID uint, keepID string) (int, error) {
+	userKey := UserSessionsKey(userID)
+
+	ids, err := cache.RDB.SMembers(ctx, userKey).Result()
+	if err != nil {
+		return 0, err
+	}
+
+	others := OtherSessionIDs(ids, keepID)
+	if len(others) == 0 {
+		return 0, nil
+	}
+
+	sessionKeys := make([]string, len(others))
+	members := make([]interface{}, len(others))
+	for i, id := range others {
+		sessionKeys[i] = sessionKeyPrefix + id
+		members[i] = id
+	}
+
+	pipe := cache.RDB.TxPipeline()
+	deleted := pipe.Del(ctx, sessionKeys...)
+	pipe.SRem(ctx, userKey, members...)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return 0, err
+	}
+
+	return int(deleted.Val()), nil
+}
