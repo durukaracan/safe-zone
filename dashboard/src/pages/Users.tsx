@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Badge, Button } from '@thyris/ui'
 import { listUsers, createUser } from '../api/users'
 import { ApiError } from '../api/client'
 import type { CreateUserInput, DashboardUser } from '../types/users'
@@ -62,10 +63,10 @@ export default function Users() {
         <p className="page-subtitle">Manage dashboard accounts and roles</p>
       </div>
 
-      <div className="list-toolbar">
-        <button type="button" className="button-primary" onClick={() => setIsAddModalOpen(true)}>
+      <div className="my-4 flex justify-end">
+        <Button type="button" onClick={() => setIsAddModalOpen(true)}>
           + Add User
-        </button>
+        </Button>
       </div>
 
       {loadState === 'loading' && <p className="info-message">Loading users...</p>}
@@ -98,7 +99,7 @@ export default function Users() {
               <tr key={user.ID} className={currentUser?.email === user.email ? 'row-self' : undefined}>
                 <td data-label="Email">
                   {user.email}
-                  {currentUser?.email === user.email && <span className="tag-you">You</span>}
+                  {currentUser?.email === user.email && <Badge className="ml-2">You</Badge>}
                 </td>
                 <td data-label="Role">{user.role === 'admin' ? 'Admin' : 'Viewer'}</td>
                 <td data-label="Status">
@@ -108,9 +109,9 @@ export default function Users() {
                 </td>
                 <td data-label="Created">{new Date(user.CreatedAt).toLocaleDateString()}</td>
                 <td data-label="Activity">
-                  <Link to={`/activity?user=${user.ID}`} className="link-button">
-                    View activity
-                  </Link>
+                  <Button asChild variant="link" size="sm" className="h-auto p-0">
+                    <Link to={`/activity?user=${user.ID}`}>View activity</Link>
+                  </Button>
                 </td>
               </tr>
             ))}
