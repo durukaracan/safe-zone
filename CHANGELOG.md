@@ -38,6 +38,15 @@ them, rather than being treated as product releases.
   content, request ids or IP addresses.
 - Added `recharts` as an explicit dashboard dependency.
 
+### Dashboard sessions
+
+- Changing the password now closes the user's other dashboard sessions. The
+  session that made the change stays open. The audit record says how many
+  sessions were closed.
+- Sessions are listed per user in Redis (`user_sessions:<id>`) so they can be
+  closed together. Sessions opened before this change are not listed and end
+  on their own within 24 hours.
+
 ## 2.1.0 - 2026-09-07
 
 ### Bring Your Gateway

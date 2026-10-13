@@ -1625,6 +1625,9 @@ These endpoints back the Safe Zone dashboard. They use **server-side sessions** 
 ### 12.1 Sessions and roles
 
 - Sign-in sets the cookie `sz_session` (`HttpOnly`, `SameSite=Lax`, `Path=/`, lifetime 24 hours). The `Secure` flag is added when `APP_MODE=PROD`. The cookie holds only a random session id; no user data or password material.
+- Each user's live session ids are also listed in Redis under `user_sessions:<user id>` (a set that expires with the newest session). It is only used to close sessions together and holds ids, never passwords.
+- **Changing the password closes the user's other sessions** (other browsers and devices, or anyone who signed in with the old password). The session that changed the password stays signed in. The audit record of the change says how many sessions were closed, for example `2 other sessions closed`. If closing fails, the password is still changed and the audit note says `other sessions could not be closed`.
+- Sessions opened before this behaviour existed are not in the list, so a password change does not close them. They end on their own within 24 hours.
 - Passwords are stored as argon2id hashes. Length policy: 8 to 128 characters.
 - Roles:
 
@@ -1644,7 +1647,7 @@ These endpoints back the Safe Zone dashboard. They use **server-side sessions** 
 | `POST /auth/logout` | public | Ends the session. `204 No Content`. |
 | `GET /auth/me` | public | Returns `{ "email", "role" }` for the current session, or `401`. |
 | `GET /auth/me/activity` | any session | The signed-in user's own 20 most recent audit records, newest first. The user comes from the session, never from the request. |
-| `POST /auth/me/password` | any session | Change own password with `{ "current_password", "new_password" }`. `204` on success. |
+| `POST /auth/me/password` | any session | Change own password with `{ "current_password", "new_password" }`. `204` on success. Every other session of the same user is closed; the session that made the request stays open (see 12.1). |
 | `POST /users` | admin session | Create an account with `{ "email", "password", "role" }` (`role` is `admin` or `viewer`). `201` with `{ "email", "role" }`. |
 | `GET /users` | admin session | List accounts. Password hashes are never returned. |
 | `GET /audit/logs` | admin session | Latest 100 audit records, newest first. |
