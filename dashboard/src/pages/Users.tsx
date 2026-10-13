@@ -103,7 +103,7 @@ export default function Users() {
                 </td>
                 <td data-label="Role">{user.role === 'admin' ? 'Admin' : 'Viewer'}</td>
                 <td data-label="Status">
-                  <span className={user.is_active ? 'toggle-label-on' : 'toggle-label-off'}>
+                  <span className={user.is_active ? 'text-sm font-medium text-green-700' : 'text-sm text-muted-foreground'}>
                     {user.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
