@@ -73,6 +73,10 @@ func (d *Detector) Detect(req models.DetectRequest) models.DetectResponse {
 	}
 
 	var validatorResults []models.ValidatorResult
+	// failedGuardrails feeds the hourly analytics. Only guardrails that
+	// exist in the database are listed: a client can send any name, and
+	// made-up names must not create counters.
+	var failedGuardrails []string
 	for vName := range validatorsToRun {
 		validator, _ := repository.GetValidatorByName(vName)
 
@@ -102,6 +106,10 @@ func (d *Detector) Detect(req models.DetectRequest) models.DetectResponse {
 			messages = append(messages, fmt.Sprintf("Content blocked by security policy: %s", vName))
 		} else {
 			confidence = 0.7
+		}
+
+		if validator != nil && (err != nil || !valid) {
+			failedGuardrails = append(failedGuardrails, vName)
 		}
 
 		validatorResults = append(validatorResults, models.ValidatorResult{
@@ -391,6 +399,13 @@ func (d *Detector) Detect(req models.DetectRequest) models.DetectResponse {
 		RequestID: req.RID,
 		Blocked:   blocked,
 		Reason:    reason,
+	})
+
+	metrics.RecordAnalytics(metrics.AnalyticsEvent{
+		Time:             time.Now(),
+		Blocked:          blocked,
+		PIICounts:        breakdown,
+		FailedGuardrails: failedGuardrails,
 	})
 
 	return models.DetectResponse{

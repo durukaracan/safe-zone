@@ -8,6 +8,7 @@ import Overview from './pages/Overview'
 import Patterns from './pages/Patterns'
 import Guardrails from './pages/Guardrails'
 import Events from './pages/Events'
+import Analytics from './pages/Analytics'
 import Configuration from './pages/Configuration'
 import Lists from './pages/Lists'
 import Users from './pages/Users'
@@ -27,6 +28,7 @@ export default function App() {
               <Route path="/guardrails" element={<Guardrails />} />
               <Route path="/events" element={<Events />} />
               <Route path="/lists" element={<Lists />} />
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="/configuration" element={<Configuration />} />
               <Route path="/profile" element={<Profile />} />
               <Route element={<AdminRoute />}>

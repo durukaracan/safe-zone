@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"thyris-sz/internal/ai"
+	"thyris-sz/internal/analytics"
 	"thyris-sz/internal/auth"
 	"thyris-sz/internal/cache"
 	"thyris-sz/internal/config"
@@ -19,6 +20,7 @@ import (
 	"thyris-sz/internal/handlers"
 	"thyris-sz/internal/middleware"
 	"thyris-sz/internal/models"
+	"thyris-sz/internal/repository"
 	"time"
 )
 
@@ -234,6 +236,7 @@ func main() {
 	mux.Handle("GET /dashboard/summary", middleware.RequireSession(http.HandlerFunc(handlers.GetDashboardSummary)))
 	mux.Handle("GET /dashboard/events", middleware.RequireSession(http.HandlerFunc(handlers.GetDashboardEvents)))
 	mux.Handle("GET /dashboard/config", middleware.RequireSession(http.HandlerFunc(handlers.GetDashboardConfig)))
+	mux.Handle("GET /dashboard/analytics", middleware.RequireSession(handlers.NewDashboardAnalyticsHandler(repository.ListAnalyticsHourlyFrom, time.Now)))
 	// Dashboard user auth (V3.0) -- session-based, separate from the
 	// token-based machine auth above.
 	mux.HandleFunc("POST /auth/login", handlers.Login)
@@ -273,6 +276,26 @@ func main() {
 		// ===== END HTTP TIMEOUTS =====
 	}
 
+	// Hourly analytics: write the in-memory counters to the database every
+	// FlushInterval. stopAnalytics flushes one last time at shutdown.
+	analyticsCtx, cancelAnalytics := context.WithCancel(context.Background())
+	analyticsDone := make(chan struct{})
+	go func() {
+		defer close(analyticsDone)
+		analytics.Run(analyticsCtx, analytics.FlushInterval, repository.UpsertAnalyticsHourly)
+	}()
+	// Counters older than analytics.RetentionDays are deleted once a day.
+	cleanupDone := make(chan struct{})
+	go func() {
+		defer close(cleanupDone)
+		analytics.RunCleanup(analyticsCtx, analytics.CleanupInterval, repository.DeleteAnalyticsHourlyBefore)
+	}()
+	stopAnalytics := func() {
+		cancelAnalytics()
+		<-analyticsDone
+		<-cleanupDone
+	}
+
 	// Graceful Shutdown
 	go func() {
 		log.Printf("Server starting on :%s...", config.AppConfig.ServerPort)
@@ -289,8 +312,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+	shutdownErr := server.Shutdown(ctx)
+
+	// Requests are finished (or abandoned) now, so every count is in memory.
+	stopAnalytics()
+
+	if shutdownErr != nil {
+		log.Fatalf("Server forced to shutdown: %v", shutdownErr)
 	}
 
 	log.Println("Server exited properly")
