@@ -432,20 +432,6 @@ a.button-secondary {
   gap: var(--space-3);
 }
 
-.password-form {
-  max-width: 420px;
-}
-
-.password-input-row {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.password-input-row input {
-  flex: 1;
-  min-width: 0;
-}
-
 .requirement {
   margin: var(--space-1) 0 0;
   color: var(--color-text-muted);
@@ -454,13 +440,6 @@ a.button-secondary {
 
 .requirement-met {
   color: var(--color-success, #1a7f37);
-}
-
-.password-form-actions {
-  display: flex;
-  gap: var(--space-2);
-  justify-content: flex-end;
-  margin-top: var(--space-3);
 }
 
 /* Row that belongs to the signed-in user (Users and Activity tables) */
