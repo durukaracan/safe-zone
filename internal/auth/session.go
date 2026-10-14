@@ -180,3 +180,17 @@ func RevokeOtherSessions(ctx context.Context, userID uint, keepID string) (int, 
 
 	return int(deleted.Val()), nil
 }
+
+// RevokeAllSessions closes every live session of the user, including the
+// one making the request, and returns how many live sessions it closed.
+// It is used when an account is deleted.
+func RevokeAllSessions(ctx context.Context, userID uint) (int, error) {
+	closed, err := RevokeOtherSessions(ctx, userID, "")
+	if err != nil {
+		return 0, err
+	}
+	if err := cache.RDB.Del(ctx, UserSessionsKey(userID)).Err(); err != nil {
+		return closed, err
+	}
+	return closed, nil
+}
