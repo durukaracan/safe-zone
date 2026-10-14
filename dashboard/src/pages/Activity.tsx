@@ -149,13 +149,14 @@ export default function Activity() {
           </select>
         </div>
 
-        <button
+        <Button
           type="button"
-          className="button-primary filter-bar-end"
+          variant="outline"
+          className="filter-bar-end"
           onClick={() => setRefreshCount((n) => n + 1)}
         >
           Refresh
-        </button>
+        </Button>
       </div>
 
       {filtersActive && (loadState === 'success' || loadState === 'empty') && (

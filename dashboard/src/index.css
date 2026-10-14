@@ -378,12 +378,6 @@
   font-size: 14px;
 }
 
-/* Buttons rendered as links (e.g. Profile in the header) */
-a.button-secondary {
-  display: inline-block;
-  text-decoration: none;
-}
-
 /* Profile page: change password */
 .password-collapsed {
   display: flex;
