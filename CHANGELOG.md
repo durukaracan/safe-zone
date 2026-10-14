@@ -47,6 +47,16 @@ them, rather than being treated as product releases.
   closed together. Sessions opened before this change are not listed and end
   on their own within 24 hours.
 
+### Dashboard user management
+
+- Added `DELETE /users/{id}` and a Delete button with a confirmation dialog on
+  the Users page. The account is removed for good, so the email can be used
+  again, and all of the user's sessions are closed.
+- An admin cannot delete their own account (`400`) and the last active admin
+  cannot be deleted (`409`).
+- The deletion is recorded in the audit log as `user_deleted`. The user's
+  earlier audit records stay and keep their email.
+
 ## 2.1.0 - 2026-09-07
 
 ### Bring Your Gateway
