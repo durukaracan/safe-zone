@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Button } from '@thyris/ui'
-import { listUsers, createUser } from '../api/users'
+import { listUsers, createUser, deleteUser } from '../api/users'
 import { ApiError } from '../api/client'
 import type { CreateUserInput, DashboardUser } from '../types/users'
 import AddUserModal from '../components/AddUserModal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 
 type LoadState = 'loading' | 'success' | 'empty' | 'error' | 'unauthorized'
@@ -14,6 +15,9 @@ export default function Users() {
   const [users, setUsers] = useState<DashboardUser[]>([])
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<DashboardUser | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -47,6 +51,39 @@ export default function Users() {
     setIsAddModalOpen(false)
 
     // The user was created; only the list refresh can fail from here.
+    try {
+      const data = await listUsers()
+      setUsers(data)
+      setLoadState(data.length === 0 ? 'empty' : 'success')
+    } catch {
+      setLoadState('error')
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return
+
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteUser(pendingDelete.ID)
+    } catch (err) {
+      // 404: someone else already deleted this account, so just refresh.
+      if (!(err instanceof ApiError && err.status === 404)) {
+        if (err instanceof ApiError && err.status === 409) {
+          setDeleteError('The last active admin cannot be deleted.')
+        } else if (err instanceof ApiError && err.status === 400) {
+          setDeleteError('You cannot delete your own account.')
+        } else {
+          setDeleteError('Unable to delete this user. Please try again.')
+        }
+        setIsDeleting(false)
+        return
+      }
+    }
+
+    setPendingDelete(null)
+    setIsDeleting(false)
     try {
       const data = await listUsers()
       setUsers(data)
@@ -92,6 +129,7 @@ export default function Users() {
               <th scope="col">Status</th>
               <th scope="col">Created</th>
               <th scope="col">Activity</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -113,6 +151,22 @@ export default function Users() {
                     <Link to={`/activity?user=${user.ID}`}>View activity</Link>
                   </Button>
                 </td>
+                <td data-label="Actions">
+                  {currentUser?.email !== user.email && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-destructive"
+                      onClick={() => {
+                        setDeleteError(null)
+                        setPendingDelete(user)
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -120,6 +174,18 @@ export default function Users() {
       )}
 
       {isAddModalOpen && <AddUserModal onCancel={() => setIsAddModalOpen(false)} onSubmit={handleAddUser} />}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete user?"
+          message="Are you sure you want to delete this user? They will be signed out immediately and cannot sign in again. This cannot be undone."
+          itemLabel={pendingDelete.email}
+          isConfirming={isDeleting}
+          confirmError={deleteError}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
     </div>
   )
 }
