@@ -25,7 +25,12 @@ them, rather than being treated as product releases.
   guardrail without deleting it. Disabled guardrails are skipped by `/detect`
   and the skip is logged. Existing guardrails stay active.
 - `AUTH_PUBLIC_PATHS` now defaults to
-  `/healthz,/ready,/auth/login,/auth/logout,/auth/me`.
+  `/healthz,/ready,/auth/login,/auth/logout,/auth/me,/patterns,/allowlist,/blacklist,/validators,/users,/dashboard,/audit`
+  (code default, `.env.example`, Helm chart and docs now agree). With only
+  the first five paths and `AUTH_ENABLED=true`, a signed-in dashboard user got
+  `401` on `/users`, `/audit/logs` and `/dashboard/*` unless an API token was
+  also sent. The routes under these paths still check a session or token
+  themselves.
 
 ### Dashboard analytics
 

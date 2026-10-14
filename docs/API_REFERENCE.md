@@ -42,12 +42,12 @@ Authentication behavior is controlled via:
 AUTH_ENABLED=false
 AUTH_REQUIRE_BEARER_TOKEN=true
 AUTH_TOKEN_PERMISSIONS=token_detect=detect:read,token_admin=*
-AUTH_PUBLIC_PATHS=/healthz,/ready,/auth/login,/auth/logout,/auth/me
+AUTH_PUBLIC_PATHS=/healthz,/ready,/auth/login,/auth/logout,/auth/me,/patterns,/allowlist,/blacklist,/validators,/users,/dashboard,/audit
 ```
 
 - `AUTH_ENABLED=false` (default): open endpoints (recommended only for trusted internal networks).
 - `AUTH_ENABLED=true`: all non-public endpoints require a valid token with matching permissions.
-- Public endpoints are `/healthz`, `/ready` and the dashboard sign-in endpoints `/auth/login`, `/auth/logout` and `/auth/me` by default. The sign-in endpoints are public only so a browser can obtain a session; the account endpoints listed in section 12 still require a valid session.
+- `AUTH_PUBLIC_PATHS` lists the paths the outer token check skips. It does not make them open to everyone: the routes under `/patterns`, `/allowlist`, `/blacklist`, `/validators`, `/users`, `/dashboard` and `/audit` still check a dashboard session or an API token themselves. They are listed so a signed-in dashboard user does not also need an API token. `/healthz`, `/ready`, `/auth/login`, `/auth/logout` and `/auth/me` are the paths a browser reaches before it has a session. The account endpoints listed in section 12 still require a valid session. A new route added under one of these paths must have its own session or token check.
 - Management endpoints (`/patterns`, `/allowlist`, `/blacklist`, `/validators`) accept either a bearer token / `X-ADMIN-KEY` or a dashboard session cookie. See section 12 for roles.
 - Legacy `X-ADMIN-KEY` compatibility remains available for admin handlers.
 
